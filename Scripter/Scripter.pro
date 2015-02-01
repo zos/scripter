@@ -22,7 +22,10 @@ SOURCES += main.cpp \
     comm/TcpSocket.cpp \
     comm/TcpServer.cpp \
     nodder/Nodder.cpp \
-    comm/Config.cpp
+    comm/Config.cpp \
+    comm/Message.cpp \
+    comm/Protocol.cpp \
+    comm/Serialization.cpp
 
 HEADERS  += mainwindow.h \
         comm/Pipe.h \
@@ -35,7 +38,10 @@ HEADERS  += mainwindow.h \
     comm/TcpServer.h \
     comm/Protocol.h \
     nodder/Nodder.h \
-    comm/Config.h
+    comm/Config.h \
+    comm/Message.h \
+    comm/Serialization.h \
+    utils.h
 
 FORMS    += mainwindow.ui
 

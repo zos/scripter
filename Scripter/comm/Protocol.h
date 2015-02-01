@@ -1,7 +1,8 @@
 #ifndef PROTOCOL_H
 #define PROTOCOL_H
 
-#include <cstddef>
+#include <cstdint>
+#include <string>
 
 enum class ProtocolMessage : uint32_t {
     HelloClient = 0,
@@ -13,7 +14,17 @@ enum class ProtocolMessage : uint32_t {
     JobRequest,
     JobResult,
     BeOverlord,
-    NewOverlord
+    NewOverlord,
+    UnknownMessage
 };
+
+namespace ProtocolText {
+extern const std::string helloClient;
+extern const std::string redirect;
+extern const std::string jobRequest;
+extern const std::string jobResult;
+extern const std::string jobNew;
+extern const std::string jobDone;
+}
 
 #endif // PROTOCOL_H

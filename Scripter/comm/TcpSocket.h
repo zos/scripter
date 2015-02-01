@@ -10,10 +10,23 @@ public:
     explicit TcpSocket();
     explicit TcpSocket(QTcpSocket *socket);
     virtual ~TcpSocket();
+
+    qintptr socketDescriptor() {
+        return m_socket->socketDescriptor();
+    }
+
+    QTcpSocket *getSocket() {
+        return m_socket;
+    }
+
+    void abort() {
+        m_socket->abort();
+    }
+
 signals:
     void readyRead(TcpSocket *tcp);
-    void error(TcpSocket *socket, const QAbstractSocket::SocketError &error);
-    void statusChanged(TcpSocket *socket, const QAbstractSocket::SocketState &state);
+    void errorSocket(QTcpSocket *socket, const QAbstractSocket::SocketError &error);
+    void statusChanged(QTcpSocket *socket, const QAbstractSocket::SocketState &state);
 public slots:
     void readyRead();
     void onError(const QAbstractSocket::SocketError &error);

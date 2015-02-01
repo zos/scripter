@@ -13,9 +13,13 @@ TcpSocket::~TcpSocket() {
 }
 
 void TcpSocket::onError(const QAbstractSocket::SocketError &error) {
-    emit error(m_socket, error);
+    emit errorSocket(m_socket, error);
 }
 
 void TcpSocket::onStatusChange(const QAbstractSocket::SocketState &state) {
     emit statusChanged(m_socket, state);
+}
+
+void TcpSocket::readyRead() {
+
 }

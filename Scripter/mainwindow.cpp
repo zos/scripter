@@ -11,8 +11,6 @@
 #include <string>
 #include <vector>
 
-
-
 using namespace Scripter::Communication;
 
 MainWindow::MainWindow(Pipe readPipe, Pipe writePipe, QWidget *parent) :
@@ -24,6 +22,7 @@ MainWindow::MainWindow(Pipe readPipe, Pipe writePipe, QWidget *parent) :
     ui->setupUi(this);
     connect(&m_jobCtrl, SIGNAL(resultAcquired(std::string)), this, SLOT(on_jobResult(std::string)));
     connect(this, SIGNAL(jobRequest(std::string)), &m_jobCtrl, SLOT(dispatchJob(std::string)));
+    m_jobCtrl.start();
 }
 
 MainWindow::~MainWindow()
@@ -74,13 +73,18 @@ void MainWindow::on_fileSearchButton_clicked()
 
 void MainWindow::on_runButton_clicked() {
     LOG("on_runButton_clicked");
+    ui->runButton->setDisabled(true);
     QString job = ui->scriptTextEdit->toPlainText();
     emit jobRequest(job.toStdString());
 }
 
 void MainWindow::on_jobResult(const std::string &result) {
     QString jobResult = QString::fromStdString(result);
-    ui->resultLabel->setText(jobResult);
+    if (jobResult.length() == 0) {
+        jobResult = "<empty>";
+    }
+    ui->runButton->setEnabled(true);
+    ui->resultTextBrowser->setText(jobResult);
 }
 
 void MainWindow::on_jobError(const std::string &error) {

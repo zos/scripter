@@ -4,7 +4,13 @@
 #include <QObject>
 #include <QTcpSocket>
 
+#include <comm/Message.h>
 #include <comm/TcpServer.h>
+#include <comm/Config.h>
+
+#include <nodder/Overlord.h>
+
+#include <deque>
 
 class Nodder : public QObject
 {
@@ -15,24 +21,35 @@ public:
 signals:
     void jobResult(const QString &result);
     void noAvailableHosts();
+    void workerAvailable();
 
 public slots:
-    void start(const QString &address, uint16_t port);
+    void start();
     void onConnected();
     void onError(QAbstractSocket::SocketError);
-    void onReadyRead();
+    void extractMessageServer(QTcpSocket *socket);
+    void extractMessageSocket();
 private:
-    void tryConnect();
-    void sendHelloClient();
-    QList<QString> m_hosts;
-    unsigned int m_hostPort;
-    unsigned int m_nodePort;
-    unsigned int m_overlordPort;
+    bool tryConnect();
+    bool handleClientMessage(QTcpSocket *socket, const Message &m);
+    bool sendMessage(QTcpSocket *socket, const Message &m);
+    bool sendHelloClient(QTcpSocket *socket);
+    bool extractMessage(QTcpSocket *socket);
+
+    void startOverlord();
+    void startNode();
+
+    Configuration m_conf;
+
     TcpServer *m_server;
     QTcpSocket *m_socket;
-    QString m_currentOverlord;
+
+    Overlord *m_overlord;
+    Configuration::HostInfo m_currentOverlord;
     bool m_connected;
 
+    std::deque<Configuration::HostInfo> m_connectionTries;
+    Message m_message;
 };
 
 #endif // NODDER_H

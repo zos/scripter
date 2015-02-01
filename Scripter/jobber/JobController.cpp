@@ -1,11 +1,11 @@
 #include "JobController.h"
-#include <JobDispatcher.h>
+#include <jobber/JobDispatcher.h>
 
 #include <log/Log.h>
 
 using namespace Scripter::Communication;
 
-JobController::JobController(const Pipe &readPipe, const Pipe &writePipe)
+JobController::JobController(const Pipe &readPipe, const Pipe &writePipe) : workLocal(true)
 {
     JobDispatcher *job = new JobDispatcher(readPipe, writePipe);
 
@@ -16,12 +16,26 @@ JobController::JobController(const Pipe &readPipe, const Pipe &writePipe)
     connect(job, SIGNAL(resultReady(std::string)), this, SLOT(handleResult(std::string)));
     job->moveToThread(&m_listenerThread);
     m_listenerThread.start();
+
+    m_nodder = new Nodder();
+    connect(m_nodder, SIGNAL(noAvailableHosts()), this, SLOT(jobRedirect()));
 }
 
 JobController::~JobController() {
     emit terminate();
     m_listenerThread.exit();
     m_listenerThread.wait();
+
+    delete m_nodder;
+}
+
+void JobController::start() {
+    m_nodder->start();
+}
+
+void JobController::jobRedirect() {
+    LOG("Got jobRedirect");
+    workLocal = true;
 }
 
 void JobController::dispatchJob(const std::string &job) {

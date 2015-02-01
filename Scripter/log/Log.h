@@ -1,6 +1,7 @@
 #pragma once
 
 #include <iostream>
+#include <string>
 
 #define RED_COLOR "\033[31m"
 #define GREEN_COLOR "\033[32m"
@@ -16,7 +17,12 @@
 #define LOG_LEVEL LOG_LEVEL_PRINT
 #endif
 
-#define LOG(msg) std::cout << msg << std::endl;
+#define LOG(msg) do { \
+    std::string _file = __FILE__; \
+    auto pos = _file.find_last_of('/'); \
+    _file = _file.substr(pos + 1); \
+    std::cout << _file << ":" << __LINE__ << ": " << msg << std::endl; \
+    } while(0);
 
 #if LOG_LEVEL >= LOG_LEVEL_DEBUG
 #define LOGD(msg) std::cout << msg << std::endl;

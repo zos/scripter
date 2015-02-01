@@ -39,15 +39,24 @@ int main(int argc, char *argv[])
             std::size_t jobSize = 0;
             LOG("Child: waiting for job");
             int ret = read(read_fd, &jobSize, sizeof(jobSize));
-            if (ret == -1){
-                LOG("Error reading from pipe: " << strerror(errno));
-                return -1;
+            if (ret == 0) {
+                LOG("Parent disconnected");
+                return 1;
             }
+            if (ret == -1) {
+                LOG("Error reading from pipe: " << strerror(errno));
+                return 2;
+            }
+
             std::vector<char> jobBuffer(jobSize, '\0');
             ret = read(read_fd, jobBuffer.data(), jobSize);
-            if (ret == -1){
+            if (ret == 0) {
+                LOG("Parent disconnected");
+                return 1;
+            }
+            if (ret == -1) {
                 LOG("Error reading from pipe: " << strerror(errno));
-                return -1;
+                return 2;
             }
 
             LOG("Child: received job");
@@ -55,18 +64,19 @@ int main(int argc, char *argv[])
             auto result = job.getResult();
             auto resultLen = result.size();
             ret = write(write_fd, &resultLen, sizeof(std::size_t));
-            if (ret == -1){
+            if (ret == -1) {
                 LOG("Error writing to pipe: " << strerror(errno));
-                return -1;
+                return 2;
             }
 
             ret = write(write_fd, result.data(), result.size());
-            if (ret == -1){
+            if (ret == -1) {
                 LOG("Error writing to pipe: " << strerror(errno));
-                return -1;
+                return 2;
             }
             LOG("Sent result");
             job_id++;
         }
+        return 0;
     }
 }

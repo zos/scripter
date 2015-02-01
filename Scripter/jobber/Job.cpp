@@ -26,12 +26,15 @@ Job::Job(uint64_t jobId, std::vector<char> data, std::string path) :m_jobId(jobI
 
 std::vector<char> Job::getResult() {
     LOG("Get result from: " << m_path << m_file);
-    std::string cmd = "/bin/sh -c \"perl " + m_path + m_file + " > " + outFileName + " 2>&1\"";
+    std::string cmd = "/bin/sh -c \"perl " + m_path + m_file + " > " + m_path + outFileName + " 2>&1\"";
+    LOG("Running command: " << cmd);
     int ret = system(cmd.c_str());
     std::ifstream fin(m_path + outFileName);
     std::vector<char> result;
-    if (!fin || ret != 0)
+    if (!fin || ret != 0) {
+        LOG("Error reading result");
         return result;
+    }
 
     fin.seekg (0, std::ios::end);
     std::ios::pos_type length = fin.tellg();

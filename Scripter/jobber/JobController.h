@@ -6,6 +6,8 @@
 
 #include <comm/Pipe.h>
 
+#include <nodder/Nodder.h>
+
 #include <string>
 
 class JobController : public QObject
@@ -28,6 +30,12 @@ public slots:
     void handleResult(const std::string &result);
     void handleError(const std::string &error);
     void dispatchJob(const std::string &job);
+    void jobRedirect();
+    void start();
+
+private:
+    Nodder *m_nodder;
+    bool workLocal;
 
 };
 
