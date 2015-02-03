@@ -9,4 +9,6 @@ const std::string jobResult = "job-result";
 const std::string jobNew = "job-new";
 const std::string jobDone = "job-done";
 const std::string id = "id";
+const std::string nodes = "nodes";
+const std::string newNode = "new-node";
 }

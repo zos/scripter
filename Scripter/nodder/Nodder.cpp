@@ -8,6 +8,7 @@
 
 #include <QHostAddress>
 #include <QSettings>
+#include <QTimer>
 
 #include <algorithm>
 #include <sstream>
@@ -24,6 +25,19 @@ Nodder::Nodder(QObject *parent) :
     }
 }
 
+void Nodder::updateNetwork() {
+    LOG("updateNetwork()");
+    if (!tryConnect()) {
+        m_overlordFound = false;
+        m_connected = false;
+        emit changeWorkPlace(true);
+        startOverlord();
+    } else {
+        m_connected = true;
+    }
+
+}
+
 bool Nodder::tryConnect() {
     LOG("tryConnect()");
     const int timeout = 2 * 1000;
@@ -34,12 +48,13 @@ bool Nodder::tryConnect() {
         LOG("Trying to connect to: " << node.name.toStdString()
             << " address=<" << node.address.toStdString() << ">"
             << " port=<" << node.port << ">");
-        if (m_socket->waitForConnected(timeout)) {
 
+        if (m_socket->waitForConnected(timeout)) {
             LOG("Connected");
             if (node.name == overlord) {
                 LOG("Connected to overlord!");
                 m_overlordFound = true;
+                emit changeWorkPlace(false);
             } else {
                 LOG(node.name.toStdString() << " " << overlord.toStdString());
             }
@@ -47,9 +62,7 @@ bool Nodder::tryConnect() {
             connect(m_socket, SIGNAL(error(QAbstractSocket::SocketError)), this, SLOT(onError(QAbstractSocket::SocketError)));
             connect(m_socket, SIGNAL(stateChanged(QAbstractSocket::SocketState)), this, SLOT(onStatusChange(QAbstractSocket::SocketState)));
             if (!sendHelloClient(m_socket)) {
-                //Couldn't send hello
                 LOG("Failed to send hello");
-                //m_socket->abort();
                 m_connectionTries.pop_front();
                 continue;
             }
@@ -60,7 +73,7 @@ bool Nodder::tryConnect() {
         }
         m_connectionTries.pop_front();
     }
-    emit noAvailableHosts();
+    emit changeWorkPlace(true);
     return false;
 }
 
@@ -70,8 +83,11 @@ void Nodder::onStatusChange(QAbstractSocket::SocketState state) {
         LOG("Socket connected!");
         break;
     case QAbstractSocket::SocketState::UnconnectedState:
-        if (m_overlordFound)
+        if (m_overlordFound) {
             m_overlordFound = false;
+            emit changeWorkPlace(true);
+            QTimer::singleShot(200, this, SLOT(updateNetwork()));
+        }
         LOG("Socket unnconected!");
         break;
     case QAbstractSocket::SocketState::HostLookupState:
@@ -92,47 +108,35 @@ void Nodder::onStatusChange(QAbstractSocket::SocketState state) {
     }
 }
 
-bool Nodder::sendHelloClient(QTcpSocket *socket) {
-    LOG("Sending hello-client");
-    Message m(ProtocolMessage::HelloClient);
+void Nodder::onError(QAbstractSocket::SocketError) {
+    LOG("onError: " << m_socket->errorString().toStdString());
 
-    return sendMessage(socket, m);
 }
 
 void Nodder::start() {
     if (m_connected)
         return;
     LOG("Starting node");
-    if (tryConnect()) {
-        LOG("Connection estabilished");
-        m_connected = true;
-    } else {
-        LOG("No host available");
-
-        startOverlord();
-    }
+    updateNetwork();
     startNode();
 }
 
 void Nodder::startNode() {
-    LOG("Starting Node");
+    LOG("startNode()");
     m_server = new TcpServer(m_conf.getAddress(), m_conf.getNodePort());
     connect(m_server, SIGNAL(readyRead(QTcpSocket*)), this, SLOT(extractMessageServer(QTcpSocket*)));
     m_server->start();
 }
 
 void Nodder::startOverlord() {
+    LOG("startOverlord()");
     m_overlord = new Overlord(m_conf.getAddress(), m_conf.getOverlordPort());
     m_overlord->start();
 }
 
-void Nodder::onConnected() {
-
-}
-
-void Nodder::onError(QAbstractSocket::SocketError error) {
-    LOG("onError: " << m_socket->errorString().toStdString());
-
+void Nodder::stopOverlord() {
+    //m_overlord->stop();
+    delete m_overlord;
 }
 
 void Nodder::extractMessageSocket() {
@@ -140,31 +144,27 @@ void Nodder::extractMessageSocket() {
     extractMessage(m_socket, m_clientMessage);
     if (!m_clientMessage.isDone())
         return;
-    //possible redirect - when connected to normal host
-    //possible job-new, id, nodes - when connected to overlord
+
     if (!handleClientMessage()) {
         m_socket->close();
+        QTimer::singleShot(100, this, SLOT(updateNetwork()));
         disconnect(m_socket, SIGNAL(readyRead()), this, SLOT(extractMessageSocket()));
         disconnect(m_socket, SIGNAL(error(QAbstractSocket::SocketError)), this, SLOT(onError(QAbstractSocket::SocketError)));
         disconnect(m_socket, SIGNAL(stateChanged(QAbstractSocket::SocketState)), this, SLOT(onStatusChange(QAbstractSocket::SocketState)));
         m_connected = false;
-        if(!tryConnect()) {
-            LOG("No hosts available");
-        } else {
-            LOG("Connection estabilished");
-        }
     }
     m_clientMessage.reset();
 }
 
 void Nodder::extractMessageServer(QTcpSocket *socket) {
-    LOG("Some event on server");
+    LOG("Some event on socket server");
     //possible hello-client, redirect
     extractMessage(socket, m_serverMessage);
-    if (m_serverMessage.isDone()) {
-        (void)handleServerMessage(socket, m_serverMessage);
-        m_serverMessage.reset();
-    }
+    if (!m_serverMessage.isDone())
+        return;
+
+    (void)handleServerMessage(socket, m_serverMessage);
+    m_serverMessage.reset();
 }
 
 bool Nodder::extractMessage(QTcpSocket *socket, Message &message) {
@@ -176,8 +176,8 @@ bool Nodder::extractMessage(QTcpSocket *socket, Message &message) {
         std::vector<char> data(headerSize, '\0');
         QDataStream in(socket);
         auto ret = in.readRawData(data.data(), headerSize);
-        if (ret == -1) {
-            LOG("Error reading from socket");
+        if (ret == -1 || ret == 0) {
+            LOG("Error reading from socket: " << socket->errorString().toStdString());
             //Qt docs says, that disconnection will be returned as -1
             return false;
         }
@@ -201,8 +201,8 @@ bool Nodder::extractMessage(QTcpSocket *socket, Message &message) {
         std::vector<char> data(dataToRead, '\0');
         QDataStream in(socket);
         auto ret = in.readRawData(data.data(), dataToRead);
-        if (ret == -1) {
-            LOG("Error reading from socket");
+        if (ret == -1 || ret == 0) {
+            LOG("Error reading from socket: " << socket->errorString().toStdString());
             return false;
         }
         message.addData(data);
@@ -229,6 +229,17 @@ bool Nodder::handleServerMessage(QTcpSocket *socket, const Message &m) {
     }
 
     return true;
+}
+
+
+bool Nodder::handleClientMessage() {
+    LOG("handleClientMessage(): " << m_clientMessage);
+    if (m_overlordFound) {
+        return handleMessageFromOverlord();
+    } else {
+        return handleMessageFromClient();
+    }
+    m_clientMessage.reset();
 }
 
 bool Nodder::handleMessageFromClient() {
@@ -274,7 +285,7 @@ bool Nodder::handleMessageFromOverlord() {
         break;
     }
     case ProtocolMessage::JobNew: {
-        LOG("Got job-request from overlod");
+        LOG("Got job-new from overlod");
         if (m_clientMessage.getParams().size() != 1) {
             LOG("Wrong amount of params for job-new message");
             return false;
@@ -283,6 +294,7 @@ bool Nodder::handleMessageFromOverlord() {
             LOG("Empty job received!");
             return false;
         }
+        handleNewJob();
         break;
     }
     case ProtocolMessage::JobResult: {
@@ -292,7 +304,8 @@ bool Nodder::handleMessageFromOverlord() {
             return false;
         }
         std::string result(m_clientMessage.getBinaryData().data(), m_clientMessage.getBinarySize());
-        emit jobResult(QString::fromStdString(result));
+        m_sentJobs.erase(strToUnsigned(m_clientMessage.getParams().at(0)));
+        emit jobResult(result);
         break;
     }
     default:
@@ -302,14 +315,13 @@ bool Nodder::handleMessageFromOverlord() {
     return true;
 }
 
-bool Nodder::handleClientMessage() {
-    LOG("handleClientMessage(): " << m_clientMessage);
-    if (m_overlordFound) {
-        return handleMessageFromOverlord();
-    } else {
-        return handleMessageFromClient();
-    }
-    m_clientMessage.reset();
+void Nodder::handleNewJob() {
+    unsigned id = strToUnsigned(m_clientMessage.getParams().at(0));
+    std::string job(m_clientMessage.getBinaryData().data(), m_clientMessage.getBinarySize());
+
+    //TODO if id not already assigned
+    //m_assignedJobs[id] = job;
+    emit jobRequest(id, job);
 }
 
 std::string fixedUintToStr(unsigned uvalue, int digits = 4) {
@@ -323,10 +335,60 @@ std::string fixedUintToStr(unsigned uvalue, int digits = 4) {
     return result;
 }
 
+bool Nodder::sendHelloClient(QTcpSocket *socket) {
+    LOG("Sending hello-client");
+    Message m(ProtocolMessage::HelloClient);
+
+    return sendMessage(socket, m);
+}
+
+void Nodder::handleLocalResult(unsigned id, const std::string &result) {
+    LOG("handleLocalResult");
+    //m_assignedJobs.erase(id);
+    if (!sendJobDone(id, result)) {
+        LOG("Failed to send job-done");
+    }
+}
+
+void Nodder::handleLocalError(unsigned id, const std::string &error) {
+    LOG("handleLocalError");
+    m_assignedJobs.erase(id);
+    std::string errorResult = "Error executing script: " + error;
+    if (!sendJobDone(id, errorResult))
+        LOG("Failed to send job-done");
+}
+
+bool Nodder::sendJobDone(unsigned id, std::string result) {
+    Message m(ProtocolMessage::JobDone, std::to_string(id),
+              std::vector<char>(result.begin(), result.end()));
+    return sendMessage(m_socket, m);
+}
+
+unsigned Nodder::findNewJobId() {
+    unsigned int i = 1;
+
+    for (auto it = m_sentJobs.cbegin(); it != m_sentJobs.cend() && i == it->first; ++it, ++i)
+    {}
+    return i;
+}
+
+void Nodder::handleLocalRequest(const std::string &job) {
+    LOG("handleLocalRequest");
+    unsigned id = findNewJobId();
+    Message m(ProtocolMessage::JobRequest, std::to_string(id),
+              std::vector<char>(job.begin(), job.end()));
+    if (!sendMessage(m_socket, m)) {
+        LOG("Failed to send job-request");
+    } else {
+        m_sentJobs[id] = job;
+    }
+}
+
 bool Nodder::sendMessage(QTcpSocket *socket, const Message &m) {
     LOG("Send message: " << m);
     std::string textLength = fixedUintToStr(m.getTextSize());
     std::string binaryLength = fixedUintToStr(m.getBinarySize());
+    LOG("textLength=" << textLength << ", binaryLength=" << binaryLength);
     if (socket->write(textLength.c_str(), textLength.length()) == -1) {
         LOG("Failed to send text length");
         //socket->abort();
@@ -346,5 +408,3 @@ bool Nodder::sendMessage(QTcpSocket *socket, const Message &m) {
     }
     return true;
 }
-
-

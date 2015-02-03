@@ -25,6 +25,7 @@ class Overlord : public QObject
     };
 
     struct PeerInfo {
+        PeerInfo() : socket(nullptr), jobsRequested(0), jobsDispatched(0) {}
         QTcpSocket *socket;
         unsigned jobsRequested;
         unsigned jobsDispatched;
@@ -44,6 +45,8 @@ public slots:
 private:
 
     void handleMessage(QTcpSocket *socket, const Message &m);
+    void handleJobRequest(QTcpSocket *socket, const Message &m);
+    void handleJobDone(QTcpSocket *socket, const Message &m);
     bool sendMessage(QTcpSocket *socket, const Message &m);
     unsigned newJobId();
     JobInfo findJob(unsigned id, bool erase);
@@ -61,7 +64,7 @@ private:
     std::vector<JobInfo> m_selfJobs;
     std::map<qintptr, std::list<JobInfo>> m_jobClientMapping;
     std::map<qintptr, std::list<JobInfo>> m_jobDispatchMapping;
-    std::vector<PeerInfo> m_connectedPeers;
+    std::map<qintptr, PeerInfo> m_connectedPeers;
 };
 
 #endif // OVERLORD_H

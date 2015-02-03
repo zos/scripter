@@ -30,8 +30,29 @@ std::string protocolTypeToMsg(ProtocolMessage type) {
     case ProtocolMessage::Redirect:
         command = ProtocolText::redirect;
         break;
+    case ProtocolMessage::Id:
+        command = ProtocolText::id;
+        break;
+    case ProtocolMessage::HelloUI:
+        command = ProtocolText::helloUi;
+        break;
+    case ProtocolMessage::JobDone:
+        command = ProtocolText::jobDone;
+        break;
+    case ProtocolMessage::JobNew:
+        command = ProtocolText::jobNew;
+        break;
+    case ProtocolMessage::JobRequest:
+        command = ProtocolText::jobRequest;
+        break;
+    case ProtocolMessage::JobResult:
+        command = ProtocolText::jobResult;
+        break;
+    case ProtocolMessage::Nodes:
+        command = ProtocolText::nodes;
+        break;
     default:
-        throw std::runtime_error("Not yet implemented!");
+        throw std::runtime_error("protocolTypeToMsg: Not yet implemented!");
     }
 
     return command;
@@ -84,6 +105,14 @@ ProtocolMessage Message::getType() const {
         }
         if (command == ProtocolText::redirect) {
             m_type = ProtocolMessage::Redirect;
+        }
+
+        if (command == ProtocolText::helloUi) {
+            m_type = ProtocolMessage::HelloUI;
+        }
+
+        if (command == ProtocolText::id) {
+            m_type = ProtocolMessage::Id;
         }
 
         if (command == ProtocolText::jobRequest) {
