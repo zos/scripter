@@ -1,6 +1,7 @@
 #include "TcpServer.h"
 
 #include <comm/TcpSocket.h>
+#include <log/Log.h>
 
 #include <QDataStream>
 #include <QHostAddress>
@@ -21,6 +22,7 @@ TcpServer::~TcpServer() {
     m_peers.clear();
 }
 void TcpServer::start() {
+    LOG("TcpServer started on address=" << m_address.toStdString() << " port=" << m_port);
     QHostAddress host(m_address);
     m_server->listen(host, m_port);
 }

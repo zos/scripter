@@ -16,9 +16,10 @@ class Configuration {
 public:
     struct HostInfo {
         HostInfo() {}
-        HostInfo(const QString &n, const QString &a) : name(n), address(a) {}
+        HostInfo(const QString &n, const QString &a, uint16_t p) : name(n), address(a), port(p) {}
         QString name;
         QString address;
+        uint16_t port;
     };
 
     Configuration() {}

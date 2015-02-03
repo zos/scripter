@@ -5,7 +5,11 @@
 #include <stddef.h>
 
 #include <string>
+#include <ostream>
 #include <vector>
+
+class Message;
+std::ostream &operator<<(std::ostream &os, const Message &m);
 
 class Message
 {
@@ -14,7 +18,7 @@ public:
     typedef uint32_t DataSize;
     Message();
     Message(ProtocolMessage type,
-            const std::string &textData,
+            const std::string &textData = std::string(),
             const std::vector<char> &binaryData = std::vector<char>());
 
     //Message(ProtocolMessage type, const std::string &textData);
@@ -27,8 +31,8 @@ public:
     }
 
     void setBinarySize(DataSize size);
-    DataSize getDataSize() const {
-        return m_textDataSize;
+    DataSize getBinarySize() const {
+        return m_binaryDataSize;
     }
 
     void addData(const std::vector<char> &data);

@@ -4,6 +4,22 @@
 #include <string>
 #include <stdexcept>
 
+#include <log/Log.h>
+
+std::ostream &operator<<(std::ostream &os, const Message &m) {
+    os << "Message: command=<" << m.getCommand() << ">"
+       << " params=<";
+    for (auto &param : m.getParams()) {
+        os << param << " ";
+    }
+    os << ">, binaryData=<";
+    std::vector<char> binaryData = m.getBinaryData();
+    std::string binaryStr(binaryData.data(), m.getBinarySize());
+    os << binaryStr << ">;";
+
+    return os;
+}
+
 std::string protocolTypeToMsg(ProtocolMessage type) {
     std::string command;
     switch(type) {
@@ -31,10 +47,12 @@ Message::Message(ProtocolMessage type,
                  const std::vector<char> &binaryData)
 {
     std::string command = protocolTypeToMsg(type);
-    command += " ";
+    LOG("Creating message: command='" << command << "' params='" << textData << "'");
+    if (!textData.empty())
+        command += " ";
 
     m_type = type;
-    m_textDataSize = textData.length();
+    m_textDataSize = command.length() + textData.length();
     m_binaryDataSize = binaryData.size();
 
     m_data.reserve(command.length() + m_textDataSize + m_binaryDataSize);
@@ -60,7 +78,7 @@ Message::Message(ProtocolMessage type,
 ProtocolMessage Message::getType() const {
     std::string command = getCommand();
 
-    if (m_type == ProtocolMessage::UnknownMessage) {
+    if (m_type == ProtocolMessage::UnknownMessage && !command.empty()) {
         if (command == ProtocolText::helloClient) {
             m_type = ProtocolMessage::HelloClient;
         }
@@ -107,6 +125,7 @@ bool Message::isSet() const {
 }
 
 bool Message::isDone() const {
+    //LOG(m_data.size() << " == " <<  (m_textDataSize + m_binaryDataSize));
     return isSet() && m_data.size() == (m_textDataSize + m_binaryDataSize);
 }
 
@@ -127,6 +146,8 @@ std::vector<std::string> Message::getParams() const {
     std::string param;
     std::string allParams(m_data.begin(), m_data.begin() + m_textDataSize);
     std::stringstream paramSS(allParams);
+    std::string command;
+    paramSS >> command;
     while(paramSS >> param) {
         params.push_back(param);
     }

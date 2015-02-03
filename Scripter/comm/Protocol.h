@@ -7,6 +7,7 @@
 enum class ProtocolMessage : uint32_t {
     HelloClient = 0,
     Redirect,
+    Id,
     Nodes,
     NewNode,
     JobNew,
@@ -20,11 +21,13 @@ enum class ProtocolMessage : uint32_t {
 
 namespace ProtocolText {
 extern const std::string helloClient;
+extern const std::string helloUi;
 extern const std::string redirect;
 extern const std::string jobRequest;
 extern const std::string jobResult;
 extern const std::string jobNew;
 extern const std::string jobDone;
+extern const std::string id;
 }
 
 #endif // PROTOCOL_H
